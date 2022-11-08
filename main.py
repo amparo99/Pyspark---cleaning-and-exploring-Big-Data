@@ -64,8 +64,13 @@ data = data.drop(*col_null)
 
 
 # Task 4 - Group, aggregate, create pivot table.
+agg_data = data.groupBy('water_quality').count().orderBy('count', ascending = False)
+print("Aggregted data by water_quality: ")
+agg_data.show()
 
-
+pivot_data = data.drop('recorded_by').groupBy('status_group').pivot('region').sum('amount_tsh')
+print("Pivoted data on region, grouped by status_group, suming amount_tsh:")
+pivot_data.show()
 # Task 5 - Convert categories with low frequency to Others, impute missing values.
 
 # Task 6 - Make visualizations.
