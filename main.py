@@ -18,6 +18,8 @@ findspark.init()
 from pyspark.sql import SparkSession, Window
 from pyspark.sql.functions import isnan, when, count, col, trim, lit, avg, ceil
 from pyspark.sql.types import StringType
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 sc = SparkSession.builder.master("local[*]").getOrCreate()
 
@@ -65,7 +67,7 @@ data = data.drop(*col_null)
 
 # Task 4 - Group, aggregate, create pivot table.
 agg_data = data.groupBy('water_quality').count().orderBy('count', ascending = False)
-print("Aggregted data by water_quality: ")
+print("\nAggregated data by water_quality: ")
 agg_data.show()
 
 pivot_data = data.drop('recorded_by').groupBy('status_group').pivot('region').sum('amount_tsh')
@@ -95,9 +97,39 @@ data.groupBy('population').count().orderBy('population').show(10) ####REVISAR PO
 
 
 # Task 6 - Make visualizations.
-
 color_status = {'functional': 'green', 'non functional': 'red', 'functional needs repair': 'blue'}
+cols = ['status_group', 'payment_type', 'longitude', 'latitude', 'gps_height']
+df = data.select(cols).toPandas()
 
+fig1, ax1 = plt.subplots(figsize = (12,8))
+sns.countplot(x = 'payment_type',
+              hue = 'status_group',
+              data = df,
+              ax = ax1,
+              palette = color_status)
+plt.xticks(rotation = 45)
+plt.title('amount of payment type')
+plt.show()
 
+fig2, ax2 = plt.subplots(figsize = (12,8))
+sns.scatterplot(x = 'longitude',
+                y = 'latitude',
+                data = df,
+                hue = 'status_group',
+                ax = ax2,
+                palette = color_status)
+plt.title('geographic distribution by status')
+plt.show()
 
+row_functional = (df['status_group'] == 'functional')
+row_non_functional = (df['status_group'] == 'non functional')
+row_repair = (df['status_group'] == 'functional needs repair')
 
+col = 'gps_height'
+fig3, ax3 = plt.subplots(figsize = (12,8))
+sns.displot(df[col][row_functional], color = 'green', label = 'functional', ax = ax3)
+sns.displot(df[col][row_non_functional], color = 'red', label = 'non functional', ax = ax3)
+sns.displot(df[col][row_repair], color = 'blue', label = 'functional need repair', ax = ax3)
+plt.legend()
+plt.title('gps_heigh functionality')
+plt.show()
