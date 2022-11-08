@@ -15,8 +15,8 @@ os.environ["SPARK_HOME"] = "/Users/amparoalias/Documents/spark-3.3.0-bin-hadoop3
 import findspark
 findspark.init()
 
-from pyspark.sql import SparkSession
-from pyspark.sql.functions import isnan, when, count, col, trim
+from pyspark.sql import SparkSession, Window
+from pyspark.sql.functions import isnan, when, count, col, trim, lit, avg, ceil
 from pyspark.sql.types import StringType
 
 sc = SparkSession.builder.master("local[*]").getOrCreate()
@@ -71,7 +71,28 @@ agg_data.show()
 pivot_data = data.drop('recorded_by').groupBy('status_group').pivot('region').sum('amount_tsh')
 print("Pivoted data on region, grouped by status_group, suming amount_tsh:")
 pivot_data.show()
+
 # Task 5 - Convert categories with low frequency to Others, impute missing values.
+print("The string columns we have are: \n", str_cols)
+column = str_cols[0]
+print("* Column - ", column)
+# print(data.groupBy(column).count().orderBy('count', ascending = False).show())
+print("Before: ", data.select(column).distinct().count())
+values_cat = data.groupBy(column).count().collect()
+lessthan = [x[0] for x in values_cat if x[1]<1000]
+data = data.withColumn(column, when(col(column).isin(lessthan), 'Others').otherwise(col(column)))
+print("After: ", data.select(column).distinct().count())
+# print(data.groupBy(column).count().orderBy('count', ascending = False).show())
+
+
+print("\nBefore filling nulls with mean: \n")
+data.groupBy('population').count().orderBy('population').show(10)
+data = data.withColumn('population', when(col('population') < 2, lit(None)).otherwise(col('population')))
+w = Window.partitionBy(data['district_code'])
+data = data.withColumn('population', when(col('population').isNull(), avg(data['population']).over(w)).otherwise(col('population')))
+print("\nAfter filling nulls with mean: \n")
+data.groupBy('population').count().orderBy('population').show(10) ####REVISAR PORQUÉ HAY NULOS..
+
 
 # Task 6 - Make visualizations.
 
