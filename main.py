@@ -15,46 +15,56 @@ os.environ["SPARK_HOME"] = "/Users/amparoalias/Documents/spark-3.3.0-bin-hadoop3
 import findspark
 findspark.init()
 
-from pyspark.sql import SparkSession, Window
-from pyspark.sql.functions import isnan, when, count, col, lit, trim, avg, ceil
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import isnan, when, count, col, trim
 from pyspark.sql.types import StringType
-#import matplotlib.pyplot as plt
-#import pandas as pd
-#import seaborn as sns
-
 
 sc = SparkSession.builder.master("local[*]").getOrCreate()
 
 features = sc.read.csv('features.csv', inferSchema=True, header=True)
 labels = sc.read.csv('labels.csv', inferSchema=True, header = True)
 
-print("Rows of features: ", features.count())
-print("Columns of features: ", features.columns)
+print("\nRows of features: ", features.count())
+print("Number of columns of features: ", len(features.columns))
 print("Rows of labels: ", labels.count())
-print("Columns of labels: ", labels.columns)
+print("Number of columns of labels: ", len(labels.columns))
 
 data = features.join(labels, on = ('id'))
-print("Rows of data: ", data.count())
-print("Columns of data: ", data.columns)
+print("\nRows of final_data: ", data.count())
+print("Number of columns of final_data: ", len(data.columns))
 
 # Task 2 - Change column type, drop duplicated rows, remove whitespacs.
-print(data.printSchema())
-print(data.show(10))
+print("\n\nData schema:")
+data.printSchema()
+print("\n\nFirst ten rows of data: \n")
+data.show(10)
 
 ## we need to change the variable type from integer to string of variables: region_code and district_code
 data = data.withColumn("region_code", col("region_code").cast(StringType()))\
             .withColumn("district_code", col("district_code").cast(StringType()))
 
+print("\n\nData count *before* dropping duplicates: ",data.count())
 data = data.dropDuplicates(['id'])
-print(data.count())
+print("Data count *after* dropping duplicates: ", data.count())
 
 str_cols = [item[0] for item in data.dtypes if item[1].startswith("string")]
-for col in str_cols:
-    data = data.withColumn(col, trim(data[col]))
+for column in str_cols:
+    data = data.withColumn(column, trim(data[column]))
 
 # Task 3 - Remove columns with null values more than a threshold.
+aggrow = data.select([(count(when(isnan(c) | col(c).isNull(), c))/data.count()).alias(c) for c in data.columns if c not in {'date_recorded', 'public_meeting', 'permit'}]).collect()
+
+agg_dict_list = [row.asDict() for row in aggrow]
+agg_dict = agg_dict_list[0]
+print("\n\nDictionary with percentage of nulls per column: \n", agg_dict)
+
+col_null = list({i for i in agg_dict if agg_dict[i]>0.4})
+print("Cols with more than 40% of nulls: ", col_null)
+data = data.drop(*col_null)
+
 
 # Task 4 - Group, aggregate, create pivot table.
+
 
 # Task 5 - Convert categories with low frequency to Others, impute missing values.
 
